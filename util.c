@@ -2076,6 +2076,7 @@ out:
     return ret;
 }
 
+#ifdef USE_BITMAIN_C5
 static bool parse_version(struct pool *pool, json_t *val)
 {
     int i;
@@ -2084,6 +2085,7 @@ static bool parse_version(struct pool *pool, json_t *val)
         pool->version[i] = json_integer_value(json_array_get(val, i));
     }
 }
+#endif
 
 static bool parse_diff(struct pool *pool, json_t *val)
 {
@@ -2331,6 +2333,7 @@ bool parse_method(struct pool *pool, char *s)
     if (!buf)
         goto out_decref;
 
+#ifdef USE_BITMAIN_C5
     if (!strncasecmp(buf, "mining.multi_version", 20))
     {
         pool->support_vil = true;
@@ -2338,6 +2341,7 @@ bool parse_method(struct pool *pool, char *s)
         ret = parse_version(pool, params);
         goto out_decref;
     }
+#endif
 
     if (!strncasecmp(buf, "mining.notify", 13))
     {

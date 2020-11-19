@@ -15,3 +15,10 @@ option: S9   R4   T9   T9+
 2. compile the code
 make
 
+# Fix compile, mast build in ubuntu for arm
+```
+$ apt-get install build-essential autoconf automake libtool pkg-config \
+        libcurl4-openssl-dev libudev-dev libusb-1.0-0-dev \
+        libncurses5-dev libz-dev
+$ ./autogen.sh && CFLAGS="-O2 -Wall -march=native" ./configure --enable-bitmain-c5 && make
+```

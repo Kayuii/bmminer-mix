@@ -41,7 +41,6 @@
 #include <systemd/sd-daemon.h>
 #endif
 
-#include <sys/sysinfo.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -63,12 +62,14 @@ char *curly = ":D";
 
 #ifdef USE_BITMAIN
 #include "driver-bitmain.h"
-#define USE_USBUTILS
+#define USE_USBUTILS 1
 #endif
 
 #ifdef USE_BITMAIN_C5
+#include <sys/sysinfo.h>
 #include "driver-btm-c5.h"
 #endif
+
 
 #ifdef USE_USBUTILS
 #include "usbutils.h"
@@ -4900,9 +4901,9 @@ static void _copy_work(struct work *work, const struct work *base_work, int noff
     {
         work->coinbase = strdup(base_work->coinbase);
     }
-//#ifdef USE_BITMAIN_C5
+#ifdef USE_BITMAIN_C5
     work->version = base_work->version;
-//#endif
+#endif
 }
 
 void set_work_ntime(struct work *work, int ntime)  // only for bitfury? set_work_ntime(work, timestamp); this function parse_bxf_submit
@@ -5999,17 +6000,20 @@ static time_t hashdisplay_t;
 void zero_stats(void)
 {
     int i;
-    struct sysinfo sInfo;
-    if (sysinfo(&sInfo))
-    {
-        applog(LOG_INFO, "Failed to get sysinfo, errno:%u, reason:%s\n",
-               errno, strerror(errno));
-        total_tv_start_sys=time(NULL);
-    }
-    else
-    {
-        total_tv_start_sys=sInfo.uptime;
-    }
+#ifdef USE_BITMAIN_C5
+	struct sysinfo sInfo;
+	if (sysinfo(&sInfo))
+	{
+		applog(LOG_INFO, "Failed to get sysinfo, errno:%u, reason:%s\n",
+			   errno, strerror(errno));
+		total_tv_start_sys=time(NULL);
+	}
+	else
+	{
+		total_tv_start_sys=sInfo.uptime;
+	}
+
+#endif
 
     cgtime(&total_tv_start);
     copy_time(&tv_hashmeter, &total_tv_start);
@@ -6909,17 +6913,19 @@ static void hashmeter(int thr_id, uint64_t hashes_done)
     int local_mhashes_done_count    = 0;
     int i = 0;
 
-    struct sysinfo sInfo;
-    if (sysinfo(&sInfo))
-    {
-        applog(LOG_INFO, "Failed to get sysinfo, errno:%u, reason:%s\n",
-               errno, strerror(errno));
-        total_tv_end_sys=time(NULL);
-    }
-    else
-    {
-        total_tv_end_sys=sInfo.uptime;
-    }
+#ifdef USE_BITMAIN_C5
+	struct sysinfo sInfo;
+	if (sysinfo(&sInfo))
+	{
+		applog(LOG_INFO, "Failed to get sysinfo, errno:%u, reason:%s\n",
+			   errno, strerror(errno));
+		total_tv_end_sys=time(NULL);
+	}
+	else
+	{
+		total_tv_end_sys=sInfo.uptime;
+	}
+#endif
 
     cgtime(&total_tv_end);
 
@@ -7577,6 +7583,8 @@ static void *stratum_sthread(void *userdata)
         sshare->id = swork_id++;
         mutex_unlock(&sshare_lock);
 
+#ifdef USE_BITMAIN_C5
+
         if(pool->support_vil)
         {
             snprintf(s, sizeof(s),
@@ -7600,6 +7608,18 @@ static void *stratum_sthread(void *userdata)
                      noncehex,
                      sshare->id);
         }
+#endif
+#ifdef USE_BITMAIN
+            snprintf(s, sizeof(s),
+                     "{\"params\": [\"%s\", \"%s\", \"%s\", \"%s\", \"%s\"], \"id\": %d, \"method\": \"mining.submit\"}",
+                     pool->rpc_user,
+                     work->job_id,
+                     nonce2hex,
+                     work->ntime,
+                     noncehex,
+                     sshare->id);
+#endif
+
         applog(LOG_INFO, "Submitting share %08lx to pool %d", (long unsigned int)htole32(hash32[6]), pool->pool_no);
 
         /* Try resubmitting for up to 2 minutes if we fail to submit
@@ -8198,7 +8218,7 @@ void set_target(unsigned char *dest_target, double diff)
 }
 
 
-//#ifdef USE_BITMAIN_C5
+#ifdef USE_BITMAIN_C5
 void get_work_by_nonce2(struct thr_info *thr,
                         struct work **work,
                         struct pool *pool,
@@ -8230,7 +8250,7 @@ void get_work_by_nonce2(struct thr_info *thr,
     (*work)->version = version;
 }
 
-// #endif
+#endif
 
 /* Generates stratum based work based on the most recent notify information
  * from the pool. This will keep generating work while a pool is down so we use
@@ -10507,17 +10527,19 @@ void print_summary(void)
 
 static void clean_up(bool restarting)
 {
-    struct sysinfo sInfo;
-    if (sysinfo(&sInfo))
-    {
-        applog(LOG_INFO, "Failed to get sysinfo, errno:%u, reason:%s\n",
-               errno, strerror(errno));
-        total_tv_end_sys=time(NULL);
-    }
-    else
-    {
-        total_tv_end_sys=sInfo.uptime;
-    }
+#ifdef USE_BITMAIN_C5
+	struct sysinfo sInfo;
+	if (sysinfo(&sInfo))
+	{
+		applog(LOG_INFO, "Failed to get sysinfo, errno:%u, reason:%s\n",
+			   errno, strerror(errno));
+		total_tv_end_sys=time(NULL);
+	}
+	else
+	{
+		total_tv_end_sys=sInfo.uptime;
+	}
+#endif
 
 #ifdef USE_USBUTILS
     usb_polling = false;
@@ -11354,6 +11376,7 @@ static void initialise_usb(void)
 
 #endif
 
+#ifdef USE_BITMAIN_C5
 void setStartTimePoint()
 {
     char logstr[256];
@@ -11376,6 +11399,7 @@ void setStartTimePoint()
         writeInitLogFile(logstr);
     }
 }
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -11389,7 +11413,6 @@ int main(int argc, char *argv[])
     int i, j, slept = 0;
     unsigned int k;
     char *s;
-    struct sysinfo sInfo;
 
     g_logfile_enable = false;
 
@@ -12003,18 +12026,21 @@ begin_bench:
         cgpu->rolling = cgpu->total_mhashes = 0;
     }
 
-    if (sysinfo(&sInfo))
-    {
-        applog(LOG_INFO, "Failed to get sysinfo, errno:%u, reason:%s\n",
-               errno, strerror(errno));
-        total_tv_end_sys=time(NULL);
-        total_tv_start_sys=time(NULL);
-    }
-    else
-    {
-        total_tv_end_sys=sInfo.uptime;
-        total_tv_start_sys=sInfo.uptime;
-    }
+#ifdef USE_BITMAIN_C5
+	struct sysinfo sInfo;
+	if (sysinfo(&sInfo))
+	{
+		applog(LOG_INFO, "Failed to get sysinfo, errno:%u, reason:%s\n",
+			   errno, strerror(errno));
+		total_tv_end_sys=time(NULL);
+		total_tv_start_sys=time(NULL);
+	}
+	else
+	{
+		total_tv_end_sys=sInfo.uptime;
+		total_tv_start_sys=sInfo.uptime;
+	}
+#endif
 
     cgtime(&total_tv_start);
     cgtime(&total_tv_end);
